@@ -8,6 +8,13 @@
       "when": 1792699243125,
       "tag": "0000_quadras_mvp",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792710000000,
+      "tag": "0001_multi_local_bh",
+      "breakpoints": true
     }
   ]
 }

@@ -10,33 +10,178 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OrgRouteImport } from './routes/_org'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as GestorRouteImport } from './routes/gestor'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
+import { Route as OrgAgendaRouteImport } from './routes/_org/agenda'
+import { Route as OrgMinhasReservasRouteImport } from './routes/_org/minhas-reservas'
+import { Route as GestorIndexRouteImport } from './routes/gestor/index'
+import { Route as GestorConfiguracaoRouteImport } from './routes/gestor/configuracao'
+import { Route as GestorSolicitacoesRouteImport } from './routes/gestor/solicitacoes'
+import { Route as OrgReservaBookingIdRouteImport } from './routes/_org/reserva.$bookingId'
+import { Route as OrgReservarSlotIdRouteImport } from './routes/_org/reservar.$slotId'
+import { Route as GestorHorarioSlotIdRouteImport } from './routes/gestor/horario.$slotId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrgRoute = OrgRouteImport.update({
+  id: '/_org',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GestorRoute = GestorRouteImport.update({
+  id: '/gestor',
+  path: '/gestor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacidadeRoute = PrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrgAgendaRoute = OrgAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
+  getParentRoute: () => OrgRoute,
+} as any)
+const OrgMinhasReservasRoute = OrgMinhasReservasRouteImport.update({
+  id: '/minhas-reservas',
+  path: '/minhas-reservas',
+  getParentRoute: () => OrgRoute,
+} as any)
+const GestorIndexRoute = GestorIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => GestorRoute,
+} as any)
+const GestorConfiguracaoRoute = GestorConfiguracaoRouteImport.update({
+  id: '/configuracao',
+  path: '/configuracao',
+  getParentRoute: () => GestorRoute,
+} as any)
+const GestorSolicitacoesRoute = GestorSolicitacoesRouteImport.update({
+  id: '/solicitacoes',
+  path: '/solicitacoes',
+  getParentRoute: () => GestorRoute,
+} as any)
+const OrgReservaBookingIdRoute = OrgReservaBookingIdRouteImport.update({
+  id: '/reserva/$bookingId',
+  path: '/reserva/$bookingId',
+  getParentRoute: () => OrgRoute,
+} as any)
+const OrgReservarSlotIdRoute = OrgReservarSlotIdRouteImport.update({
+  id: '/reservar/$slotId',
+  path: '/reservar/$slotId',
+  getParentRoute: () => OrgRoute,
+} as any)
+const GestorHorarioSlotIdRoute = GestorHorarioSlotIdRouteImport.update({
+  id: '/horario/$slotId',
+  path: '/horario/$slotId',
+  getParentRoute: () => GestorRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/gestor': typeof GestorRouteWithChildren
+  '/privacidade': typeof PrivacidadeRoute
+  '/agenda': typeof OrgAgendaRoute
+  '/minhas-reservas': typeof OrgMinhasReservasRoute
+  '/gestor/configuracao': typeof GestorConfiguracaoRoute
+  '/gestor/solicitacoes': typeof GestorSolicitacoesRoute
+  '/gestor/': typeof GestorIndexRoute
+  '/reserva/$bookingId': typeof OrgReservaBookingIdRoute
+  '/reservar/$slotId': typeof OrgReservarSlotIdRoute
+  '/gestor/horario/$slotId': typeof GestorHorarioSlotIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/agenda': typeof OrgAgendaRoute
+  '/minhas-reservas': typeof OrgMinhasReservasRoute
+  '/gestor/configuracao': typeof GestorConfiguracaoRoute
+  '/gestor/solicitacoes': typeof GestorSolicitacoesRoute
+  '/gestor': typeof GestorIndexRoute
+  '/reserva/$bookingId': typeof OrgReservaBookingIdRoute
+  '/reservar/$slotId': typeof OrgReservarSlotIdRoute
+  '/gestor/horario/$slotId': typeof GestorHorarioSlotIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_org': typeof OrgRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/gestor': typeof GestorRouteWithChildren
+  '/privacidade': typeof PrivacidadeRoute
+  '/_org/agenda': typeof OrgAgendaRoute
+  '/_org/minhas-reservas': typeof OrgMinhasReservasRoute
+  '/gestor/configuracao': typeof GestorConfiguracaoRoute
+  '/gestor/solicitacoes': typeof GestorSolicitacoesRoute
+  '/gestor/': typeof GestorIndexRoute
+  '/_org/reserva/$bookingId': typeof OrgReservaBookingIdRoute
+  '/_org/reservar/$slotId': typeof OrgReservarSlotIdRoute
+  '/gestor/horario/$slotId': typeof GestorHorarioSlotIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/gestor'
+    | '/privacidade'
+    | '/agenda'
+    | '/minhas-reservas'
+    | '/gestor/configuracao'
+    | '/gestor/solicitacoes'
+    | '/gestor/'
+    | '/reserva/$bookingId'
+    | '/reservar/$slotId'
+    | '/gestor/horario/$slotId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/privacidade'
+    | '/agenda'
+    | '/minhas-reservas'
+    | '/gestor/configuracao'
+    | '/gestor/solicitacoes'
+    | '/gestor'
+    | '/reserva/$bookingId'
+    | '/reservar/$slotId'
+    | '/gestor/horario/$slotId'
+  id:
+    | '__root__'
+    | '/'
+    | '/_org'
+    | '/auth'
+    | '/gestor'
+    | '/privacidade'
+    | '/_org/agenda'
+    | '/_org/minhas-reservas'
+    | '/gestor/configuracao'
+    | '/gestor/solicitacoes'
+    | '/gestor/'
+    | '/_org/reserva/$bookingId'
+    | '/_org/reservar/$slotId'
+    | '/gestor/horario/$slotId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  OrgRoute: typeof OrgRouteWithChildren
+  AuthRoute: typeof AuthRoute
+  GestorRoute: typeof GestorRouteWithChildren
+  PrivacidadeRoute: typeof PrivacidadeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +193,132 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_org': {
+      id: '/_org'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof OrgRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gestor': {
+      id: '/gestor'
+      path: '/gestor'
+      fullPath: '/gestor'
+      preLoaderRoute: typeof GestorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacidade': {
+      id: '/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_org/agenda': {
+      id: '/_org/agenda'
+      path: '/agenda'
+      fullPath: '/agenda'
+      preLoaderRoute: typeof OrgAgendaRouteImport
+      parentRoute: typeof OrgRoute
+    }
+    '/_org/minhas-reservas': {
+      id: '/_org/minhas-reservas'
+      path: '/minhas-reservas'
+      fullPath: '/minhas-reservas'
+      preLoaderRoute: typeof OrgMinhasReservasRouteImport
+      parentRoute: typeof OrgRoute
+    }
+    '/gestor/': {
+      id: '/gestor/'
+      path: '/'
+      fullPath: '/gestor/'
+      preLoaderRoute: typeof GestorIndexRouteImport
+      parentRoute: typeof GestorRoute
+    }
+    '/gestor/configuracao': {
+      id: '/gestor/configuracao'
+      path: '/configuracao'
+      fullPath: '/gestor/configuracao'
+      preLoaderRoute: typeof GestorConfiguracaoRouteImport
+      parentRoute: typeof GestorRoute
+    }
+    '/gestor/solicitacoes': {
+      id: '/gestor/solicitacoes'
+      path: '/solicitacoes'
+      fullPath: '/gestor/solicitacoes'
+      preLoaderRoute: typeof GestorSolicitacoesRouteImport
+      parentRoute: typeof GestorRoute
+    }
+    '/_org/reserva/$bookingId': {
+      id: '/_org/reserva/$bookingId'
+      path: '/reserva/$bookingId'
+      fullPath: '/reserva/$bookingId'
+      preLoaderRoute: typeof OrgReservaBookingIdRouteImport
+      parentRoute: typeof OrgRoute
+    }
+    '/_org/reservar/$slotId': {
+      id: '/_org/reservar/$slotId'
+      path: '/reservar/$slotId'
+      fullPath: '/reservar/$slotId'
+      preLoaderRoute: typeof OrgReservarSlotIdRouteImport
+      parentRoute: typeof OrgRoute
+    }
+    '/gestor/horario/$slotId': {
+      id: '/gestor/horario/$slotId'
+      path: '/horario/$slotId'
+      fullPath: '/gestor/horario/$slotId'
+      preLoaderRoute: typeof GestorHorarioSlotIdRouteImport
+      parentRoute: typeof GestorRoute
+    }
   }
 }
 
+interface OrgRouteChildren {
+  OrgAgendaRoute: typeof OrgAgendaRoute
+  OrgMinhasReservasRoute: typeof OrgMinhasReservasRoute
+  OrgReservaBookingIdRoute: typeof OrgReservaBookingIdRoute
+  OrgReservarSlotIdRoute: typeof OrgReservarSlotIdRoute
+}
+
+const OrgRouteChildren: OrgRouteChildren = {
+  OrgAgendaRoute: OrgAgendaRoute,
+  OrgMinhasReservasRoute: OrgMinhasReservasRoute,
+  OrgReservaBookingIdRoute: OrgReservaBookingIdRoute,
+  OrgReservarSlotIdRoute: OrgReservarSlotIdRoute,
+}
+
+const OrgRouteWithChildren = OrgRoute._addFileChildren(OrgRouteChildren)
+
+interface GestorRouteChildren {
+  GestorConfiguracaoRoute: typeof GestorConfiguracaoRoute
+  GestorSolicitacoesRoute: typeof GestorSolicitacoesRoute
+  GestorIndexRoute: typeof GestorIndexRoute
+  GestorHorarioSlotIdRoute: typeof GestorHorarioSlotIdRoute
+}
+
+const GestorRouteChildren: GestorRouteChildren = {
+  GestorConfiguracaoRoute: GestorConfiguracaoRoute,
+  GestorSolicitacoesRoute: GestorSolicitacoesRoute,
+  GestorIndexRoute: GestorIndexRoute,
+  GestorHorarioSlotIdRoute: GestorHorarioSlotIdRoute,
+}
+
+const GestorRouteWithChildren =
+  GestorRoute._addFileChildren(GestorRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  OrgRoute: OrgRouteWithChildren,
+  AuthRoute: AuthRoute,
+  GestorRoute: GestorRouteWithChildren,
+  PrivacidadeRoute: PrivacidadeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

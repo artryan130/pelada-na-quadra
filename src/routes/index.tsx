@@ -35,7 +35,7 @@ function Index() {
               Sua pelada,<br />sem mandar<br /><span className="text-accent">mensagem.</span>
             </h1>
             <p className="mt-5 text-lg opacity-80">
-              Veja os horários livres das quadras, solicite a reserva e pague por Pix direto com a quadra.
+              Veja os horários livres das quadras de BH, solicite a reserva e pague por Pix direto com a quadra.
             </p>
             <ul className="mt-8 space-y-3 text-sm">
               <li className="flex items-center gap-3"><CalendarCheck className="size-5 text-accent" /> Agenda sempre atualizada pelo dono</li>

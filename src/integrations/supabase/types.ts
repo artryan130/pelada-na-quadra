@@ -209,14 +209,42 @@ export type Database = {
         }
         Relationships: []
       }
+      venue_managers: {
+        Row: {
+          created_at: string
+          user_id: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_managers_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venues: {
         Row: {
           address: string
           cancel_limit_hours: number
+          city: string
           close_hour: number
           created_at: string
           id: string
           name: string
+          neighborhood: string
           open_hour: number
           payment_deadline_hours: number
           pix_key: string
@@ -225,10 +253,12 @@ export type Database = {
         Insert: {
           address?: string
           cancel_limit_hours?: number
+          city?: string
           close_hour?: number
           created_at?: string
           id?: string
           name?: string
+          neighborhood?: string
           open_hour?: number
           payment_deadline_hours?: number
           pix_key?: string
@@ -237,10 +267,12 @@ export type Database = {
         Update: {
           address?: string
           cancel_limit_hours?: number
+          city?: string
           close_hour?: number
           created_at?: string
           id?: string
           name?: string
+          neighborhood?: string
           open_hour?: number
           payment_deadline_hours?: number
           pix_key?: string
@@ -288,7 +320,8 @@ export type Database = {
       cancel_booking: { Args: { _booking: string }; Returns: undefined }
       confirm_booking: { Args: { _booking: string }; Returns: undefined }
       expire_bookings: { Args: never; Returns: number }
-      generate_week: { Args: { _monday: string }; Returns: number }
+      create_my_venue: { Args: { _name: string }; Returns: string }
+      generate_week: { Args: { _monday: string; _venue: string }; Returns: number }
       get_agenda: {
         Args: { _day: string }
         Returns: {
@@ -303,6 +336,9 @@ export type Database = {
           starts_at: string
           state: string
           surface: string
+          neighborhood: string
+          venue_id: string
+          venue_name: string
         }[]
       }
       has_role: {
@@ -312,9 +348,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      manages_court: { Args: { _court: string }; Returns: boolean }
+      manages_slot: { Args: { _slot: string }; Returns: boolean }
+      manages_venue: { Args: { _venue: string }; Returns: boolean }
       notify_waitlist: { Args: { _slot: string }; Returns: undefined }
       publish_week: {
-        Args: { _monday: string; _publish?: boolean }
+        Args: { _monday: string; _publish?: boolean; _venue: string }
         Returns: undefined
       }
       reject_booking: { Args: { _booking: string }; Returns: undefined }

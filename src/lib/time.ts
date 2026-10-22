@@ -15,6 +15,10 @@ export function mondayOf(day: string): string {
   const dow = (d.getUTCDay() + 6) % 7;
   return addDays(day, -dow);
 }
+// ISO instant for midnight of a Brasília calendar day, used as a range bound in queries.
+export function startOfDayISO(day: string): string {
+  return new Date(day + "T00:00:00-03:00").toISOString();
+}
 export function dayOfBRT(iso: string): string {
   return new Date(new Date(iso).getTime() - OFFSET_MS).toISOString().slice(0, 10);
 }
