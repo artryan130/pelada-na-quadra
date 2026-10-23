@@ -29,7 +29,7 @@ import {
 
 type Params = { inicio?: string };
 
-// One hour of one court, as shown in the week grid. Bookings may cover only part of it.
+// One 30-minute block of one court, as shown in the week grid. Bookings may span several.
 export const Route = createFileRoute("/gestor/horario/$courtId")({
   validateSearch: (s: Record<string, unknown>): Params => {
     const inicio = s["inicio"];
@@ -40,12 +40,13 @@ export const Route = createFileRoute("/gestor/horario/$courtId")({
 });
 
 const HORA = 3600_000;
+const BLOCO = 30 * 60_000;
 const minutos = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 
 function HourDetail() {
   const { courtId } = Route.useParams();
   const { inicio } = Route.useSearch();
-  const fim = inicio ? new Date(new Date(inicio).getTime() + HORA).toISOString() : "";
+  const fim = inicio ? new Date(new Date(inicio).getTime() + BLOCO).toISOString() : "";
   const qc = useQueryClient();
   const [note, setNote] = useState("");
 
@@ -88,11 +89,12 @@ function HourDetail() {
       // Same rule as the database: weekday, time overlap and validity window.
       const dia = dayOfBRT(inicio!);
       const dow = new Date(dia + "T12:00:00Z").getUTCDay();
-      const h = new Date(new Date(inicio!).getTime() - 3 * HORA).getUTCHours() * 60;
+      const local = new Date(new Date(inicio!).getTime() - 3 * HORA);
+      const h = local.getUTCHours() * 60 + local.getUTCMinutes();
       const mensalista = (mensalistas.data ?? []).find(
         (m) =>
           m.dia_semana === dow &&
-          minutos(m.inicio) < h + 60 &&
+          minutos(m.inicio) < h + 30 &&
           minutos(m.fim) > h &&
           m.valido_de <= dia &&
           (!m.valido_ate || m.valido_ate >= dia),
@@ -264,7 +266,7 @@ function HourDetail() {
                   disabled={rpc.isPending}
                   onClick={() => rpc.mutate({ kind: "block", bloquear: false })}
                 >
-                  <Unlock /> Liberar esta hora{fila.length > 0 && " e avisar a fila"}
+                  <Unlock /> Liberar este horário{fila.length > 0 && " e avisar a fila"}
                 </Button>
               )}
             </>

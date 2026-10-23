@@ -85,12 +85,7 @@ function Requests() {
                       <Link
                         to="/gestor/horario/$courtId"
                         params={{ courtId: b.court_id }}
-                        // The week grid is hourly: open the hour the booking starts in.
-                        search={{
-                          inicio: new Date(
-                            Math.floor(new Date(b.starts_at).getTime() / 3_600_000) * 3_600_000,
-                          ).toISOString(),
-                        }}
+                        search={{ inicio: b.starts_at }}
                         className="font-display text-lg font-bold"
                       >
                         {b.courts?.name} ·{" "}

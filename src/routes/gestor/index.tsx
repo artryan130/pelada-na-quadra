@@ -4,9 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
 import { useCourts, useMyVenue } from "@/lib/booking";
-import { addDays, errMsg, fmtDay, fmtTime, mondayOf, todayBRT } from "@/lib/time";
+import { BLOCO_MS, fmtMinuto, montarGrade, type Celula, type Estado } from "@/lib/grade";
+import { addDays, errMsg, fmtDay, fmtTime, mondayOf, startOfDayISO, todayBRT } from "@/lib/time";
 import { EmptyState } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,9 +16,7 @@ export const Route = createFileRoute("/gestor/")({
   component: WeekAgenda,
 });
 
-type Cell = Database["public"]["Functions"]["agenda_gestor"]["Returns"][number];
-type Estado = "livre" | "bloqueado" | "mensalista" | "pendente" | "confirmada";
-const HORA = 3600_000;
+type Cell = Celula;
 
 const CELL_CLASS: Record<Estado, string> = {
   livre: "bg-card border-border hover:border-primary",
@@ -47,15 +45,44 @@ function WeekAgenda() {
   const { data: courts = [], isLoading: courtsLoading } = useCourts(venueId ? { venueId } : {});
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const key = ["week", venueId, monday];
+  const key = ["week", venueId, monday, courts.map((c) => c.id).join()];
 
   const { data, isLoading } = useQuery({
     queryKey: key,
-    enabled: !!venueId,
+    enabled: !!venueId && courts.length > 0,
     queryFn: async () => {
       await supabase.rpc("expire_bookings");
-      const [cells, pub] = await Promise.all([
-        supabase.rpc("agenda_gestor", { _venue: venueId!, _monday: monday }),
+      const ids = courts.map((c) => c.id);
+      const de = startOfDayISO(monday);
+      const ate = startOfDayISO(addDays(monday, 7));
+      const [horarios, reservas, bloqueios, mensalistas, fila, pub] = await Promise.all([
+        supabase
+          .from("horarios_funcionamento")
+          .select("court_id, dia_semana, abre, fecha")
+          .in("court_id", ids),
+        supabase
+          .from("bookings")
+          .select("court_id, status, starts_at, ends_at, expires_at")
+          .in("court_id", ids)
+          .in("status", ["pendente", "confirmada"])
+          .lt("starts_at", ate)
+          .gt("ends_at", de),
+        supabase
+          .from("bloqueios")
+          .select("court_id, starts_at, ends_at, nota")
+          .in("court_id", ids)
+          .lt("starts_at", ate)
+          .gt("ends_at", de),
+        supabase
+          .from("mensalistas")
+          .select("court_id, dia_semana, inicio, fim, nome, valido_de, valido_ate")
+          .in("court_id", ids),
+        supabase
+          .from("waitlist")
+          .select("court_id, starts_at, ends_at")
+          .in("court_id", ids)
+          .lt("starts_at", ate)
+          .gt("ends_at", de),
         supabase
           .from("semanas_publicadas")
           .select("segunda")
@@ -63,9 +90,19 @@ function WeekAgenda() {
           .eq("segunda", monday)
           .maybeSingle(),
       ]);
-      if (cells.error) throw cells.error;
-      if (pub.error) throw pub.error;
-      return { cells: cells.data, publicada: !!pub.data };
+      for (const r of [horarios, reservas, bloqueios, mensalistas, fila, pub])
+        if (r.error) throw r.error;
+      // 30-minute blocks, built here from what the gestor can already read.
+      const cells = montarGrade({
+        courtIds: ids,
+        dias: Array.from({ length: 7 }, (_, i) => addDays(monday, i)),
+        horarios: horarios.data ?? [],
+        reservas: reservas.data ?? [],
+        bloqueios: bloqueios.data ?? [],
+        mensalistas: mensalistas.data ?? [],
+        fila: fila.data ?? [],
+      });
+      return { cells, publicada: !!pub.data };
     },
   });
 
@@ -73,11 +110,11 @@ function WeekAgenda() {
   const all = data?.cells ?? [];
   const courtCells = all.filter((c) => c.court_id === activeCourt);
   const isPublished = !!data?.publicada;
-  const hours = useMemo(
-    () => [...new Set(courtCells.map((c) => c.hora))].sort((a, b) => a - b),
+  const blocos = useMemo(
+    () => [...new Set(courtCells.map((c) => c.minuto))].sort((a, b) => a - b),
     [courtCells],
   );
-  const grid = new Map(courtCells.map((c) => [`${c.dia}|${c.hora}`, c]));
+  const grid = new Map(courtCells.map((c) => [`${c.dia}|${c.minuto}`, c]));
 
   const occupancy = (cid: string) => {
     const list = all.filter((c) => c.court_id === cid);
@@ -109,7 +146,7 @@ function WeekAgenda() {
       const { error } = await supabase.rpc("set_bloqueio", {
         _court: c.court_id,
         _inicio: c.inicio,
-        _fim: new Date(new Date(c.inicio).getTime() + HORA).toISOString(),
+        _fim: new Date(new Date(c.inicio).getTime() + BLOCO_MS).toISOString(),
         _bloquear: c.estado === "livre",
       });
       if (error) throw error;
@@ -306,16 +343,21 @@ function WeekAgenda() {
                 </tr>
               </thead>
               <tbody>
-                {hours.map((h) => (
+                {blocos.map((h) => (
                   <tr key={h}>
-                    <td className="pr-1 text-right font-display font-bold text-muted-foreground">
-                      {h}h
+                    <td
+                      className={cn(
+                        "pr-1 text-right font-display font-bold text-muted-foreground",
+                        h % 60 && "text-[10px] font-medium opacity-70",
+                      )}
+                    >
+                      {fmtMinuto(h)}
                     </td>
                     {days.map((d) => {
                       const c = grid.get(`${d}|${h}`);
-                      if (!c) return <td key={d} className="h-9 rounded-md bg-muted/40" />;
-                      const estado = c.estado as Estado;
-                      const past = new Date(c.inicio).getTime() + HORA <= Date.now();
+                      if (!c) return <td key={d} className="h-7 rounded-md bg-muted/40" />;
+                      const estado: Estado = c.estado;
+                      const past = new Date(c.inicio).getTime() + BLOCO_MS <= Date.now();
                       const faixa =
                         c.booking_inicio && c.booking_fim
                           ? `${fmtTime(c.booking_inicio)}–${fmtTime(c.booking_fim)}`
@@ -326,7 +368,7 @@ function WeekAgenda() {
                             onClick={() => onCell(c)}
                             title={[faixa, c.nota].filter(Boolean).join(" · ") || undefined}
                             className={cn(
-                              "relative flex h-9 w-full items-center justify-center rounded-md border text-[10px] font-semibold transition-colors",
+                              "relative flex h-7 w-full items-center justify-center rounded-md border text-[10px] font-semibold transition-colors",
                               CELL_CLASS[estado],
                               !isPublished && "border-dashed",
                               past && "opacity-40",
@@ -357,9 +399,9 @@ function WeekAgenda() {
             <Legend className="bg-accent rounded-full">Fila de espera</Legend>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Cada célula é 1 hora. Reservas pelo app podem durar 1h, 1h30 ou 2h e começar na meia
-            hora; toque nelas para ver o horário exato. Marque como ocupado tudo o que foi reservado
-            por WhatsApp, telefone ou na hora. Pedidos pelo app aparecem em{" "}
+            Cada célula é meia hora. Reservas pelo app podem durar 1h, 1h30 ou 2h; toque nelas para
+            ver o horário exato. Marque como ocupado tudo o que foi reservado por WhatsApp, telefone
+            ou na hora. Pedidos pelo app aparecem em{" "}
             <Link to="/gestor/solicitacoes" className="font-semibold text-primary">
               Solicitações
             </Link>
