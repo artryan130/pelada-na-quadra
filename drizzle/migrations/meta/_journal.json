@@ -36,6 +36,13 @@
       "when": 1792850000000,
       "tag": "0004_reserva_intervalo",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792900000000,
+      "tag": "0005_fotos_quadras",
+      "breakpoints": true
     }
   ]
 }

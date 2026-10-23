@@ -11,6 +11,13 @@ const SUPABASE_STUBS = `
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   create publication supabase_realtime;
+  create schema storage;
+  create table storage.buckets (id text primary key, name text, public boolean,
+    file_size_limit bigint, allowed_mime_types text[]);
+  create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
+  alter table storage.objects enable row level security;
+  grant usage on schema storage, auth to authenticated;
+  grant select, insert, update, delete on storage.objects to authenticated;
 `;
 
 export const MIGRATIONS = [
@@ -19,6 +26,7 @@ export const MIGRATIONS = [
   "0002_cnpj_local",
   "0003_busca_horario",
   "0004_reserva_intervalo",
+  "0005_fotos_quadras",
 ];
 
 export function migrationSql(name: string): string {

@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck, CalendarClock, Loader2, LocateFixed, Plus } from "lucide-react";
+import { BadgeCheck, CalendarClock, Camera, Loader2, LocateFixed, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCourts, useMyVenue, type Court, type Venue } from "@/lib/booking";
 import { errMsg } from "@/lib/time";
 import { formatCnpj, isValidCnpj, normalizeCnpj } from "@/lib/cnpj";
+import { enviarFotoQuadra, removerFotoQuadra } from "@/lib/foto";
 import {
   MODALIDADES,
   acharBairro,
@@ -328,7 +329,6 @@ function CourtForm({ court }: { court: Court }) {
   const dirty =
     f.name !== court.name ||
     f.surface !== court.surface ||
-    (f.photo_url ?? "") !== (court.photo_url ?? "") ||
     f.modalidade !== court.modalidade ||
     f.active !== court.active;
 
@@ -339,7 +339,6 @@ function CourtForm({ court }: { court: Court }) {
         .update({
           name: next.name.trim(),
           surface: next.surface.trim(),
-          photo_url: next.photo_url?.trim() || null,
           modalidade: next.modalidade,
           active: next.active,
         })
@@ -361,9 +360,7 @@ function CourtForm({ court }: { court: Court }) {
       }}
       className="flex gap-4 rounded-2xl bg-card p-4 shadow-card"
     >
-      <div className="size-20 shrink-0 overflow-hidden rounded-lg bg-muted">
-        {f.photo_url && <img src={f.photo_url} alt="" className="size-full object-cover" />}
-      </div>
+      <FotoQuadra court={court} />
       <div className="grid flex-1 gap-3 sm:grid-cols-2">
         <F label="Nome">
           <Input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
@@ -388,14 +385,6 @@ function CourtForm({ court }: { court: Court }) {
             </SelectContent>
           </Select>
         </F>
-        <F label="Link da foto">
-          <Input
-            type="url"
-            placeholder="https://…"
-            value={f.photo_url ?? ""}
-            onChange={(e) => setF({ ...f, photo_url: e.target.value })}
-          />
-        </F>
         <div className="flex items-center justify-between gap-3 sm:col-span-2">
           <label className="flex items-center gap-2 text-sm">
             <Switch checked={f.active} onCheckedChange={(v) => setF({ ...f, active: v })} />
@@ -414,6 +403,76 @@ function CourtForm({ court }: { court: Court }) {
         </div>
       </div>
     </form>
+  );
+}
+
+// Uploads right away (no "Salvar"): the photo shows up in search as soon as it is sent.
+function FotoQuadra({ court }: { court: Court }) {
+  const qc = useQueryClient();
+  const input = useRef<HTMLInputElement>(null);
+  const done = () => qc.invalidateQueries({ queryKey: ["courts"] });
+  const enviar = useMutation({
+    mutationFn: (file: File) => enviarFotoQuadra(court, file),
+    onSuccess: () => {
+      toast.success("Foto atualizada.");
+      done();
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const remover = useMutation({
+    mutationFn: () => removerFotoQuadra(court),
+    onSuccess: done,
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const ocupado = enviar.isPending || remover.isPending;
+
+  return (
+    <div className="flex w-24 shrink-0 flex-col gap-1.5">
+      <button
+        type="button"
+        onClick={() => input.current?.click()}
+        disabled={ocupado}
+        aria-label={court.photo_url ? "Trocar foto" : "Adicionar foto"}
+        className="relative size-24 overflow-hidden rounded-lg"
+      >
+        {court.photo_url ? (
+          <img src={court.photo_url} alt="" className="size-full object-cover" />
+        ) : (
+          <div className="flex size-full items-center justify-center bg-pitch-gradient font-display text-xs font-bold uppercase text-pitch-foreground/80">
+            {court.modalidade}
+          </div>
+        )}
+        <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-black/55 py-1 text-[11px] font-medium text-white">
+          {enviar.isPending ? (
+            <Loader2 className="size-3 animate-spin" />
+          ) : (
+            <Camera className="size-3" />
+          )}
+          {court.photo_url ? "Trocar" : "Foto"}
+        </span>
+      </button>
+      {court.photo_url && (
+        <button
+          type="button"
+          onClick={() => remover.mutate()}
+          disabled={ocupado}
+          className="text-[11px] text-muted-foreground underline"
+        >
+          Remover foto
+        </button>
+      )}
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) enviar.mutate(file);
+        }}
+      />
+    </div>
   );
 }
 
