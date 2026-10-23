@@ -15,6 +15,13 @@
       "when": 1792710000000,
       "tag": "0001_multi_local_bh",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792760000000,
+      "tag": "0002_cnpj_local",
+      "breakpoints": true
     }
   ]
 }

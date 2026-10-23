@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { errMsg } from "@/lib/time";
+import { formatCnpj, isValidCnpj, normalizeCnpj } from "@/lib/cnpj";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,9 @@ const AUTH_ERRORS: Record<string, string> = {
   "Invalid login credentials": "E-mail ou senha incorretos.",
   "User already registered": "Esse e-mail já tem conta. Entre com sua senha.",
   "Email not confirmed": "Confirme seu e-mail pelo link que enviamos antes de entrar.",
+  // The signup trigger rejects an invalid or duplicate CNPJ, and Supabase reports it generically.
+  "Database error saving new user":
+    "Não foi possível criar a conta. Confira o CNPJ: ele precisa ser válido e não pode já ter um local cadastrado.",
 };
 
 function AuthPage() {
@@ -36,6 +40,7 @@ function AuthPage() {
   const [form, setForm] = useState({
     role: "organizador" as "organizador" | "gestor",
     venueName: "",
+    cnpj: "",
     name: "",
     phone: "",
     email: "",
@@ -46,6 +51,8 @@ function AuthPage() {
     (k: "venueName" | "name" | "phone" | "email" | "password") =>
     (e: { target: { value: string } }) =>
       setForm({ ...form, [k]: e.target.value });
+  const cnpjComplete = normalizeCnpj(form.cnpj).length === 14;
+  const cnpjOk = isValidCnpj(form.cnpj);
 
   // On the signup screen a signed-in user is offered to sign out instead, so a second
   // account (e.g. an organizer to test with) can be created from the same browser.
@@ -69,6 +76,14 @@ function AuthPage() {
         if (!form.privacy) throw new Error("Aceite o aviso de privacidade para continuar.");
         if (form.phone.replace(/\D/g, "").length < 10)
           throw new Error("Informe o telefone com DDD.");
+        if (form.role === "gestor") {
+          if (!isValidCnpj(form.cnpj)) throw new Error("CNPJ inválido. Confira os números.");
+          const { data: inUse, error: cnpjError } = await supabase.rpc("cnpj_in_use", {
+            _cnpj: form.cnpj,
+          });
+          if (cnpjError) throw cnpjError;
+          if (inUse) throw new Error("Esse CNPJ já tem um local cadastrado.");
+        }
         const { data, error } = await supabase.auth.signUp({
           email: form.email.trim(),
           password: form.password,
@@ -79,7 +94,9 @@ function AuthPage() {
               phone: form.phone.trim(),
               privacy: "true",
               role: form.role,
-              ...(form.role === "gestor" ? { venue_name: form.venueName.trim() } : {}),
+              ...(form.role === "gestor"
+                ? { venue_name: form.venueName.trim(), cnpj: normalizeCnpj(form.cnpj) }
+                : {}),
             },
           },
         });
@@ -176,6 +193,29 @@ function AuthPage() {
                             value={form.venueName}
                             onChange={set("venueName")}
                           />
+                        </Field>
+                      )}
+                      {form.role === "gestor" && (
+                        <Field id="cnpj" label="CNPJ do local">
+                          <Input
+                            id="cnpj"
+                            required
+                            autoCapitalize="characters"
+                            placeholder="00.000.000/0000-00"
+                            value={form.cnpj}
+                            onChange={(e) => setForm({ ...form, cnpj: formatCnpj(e.target.value) })}
+                            aria-invalid={cnpjComplete && !cnpjOk}
+                          />
+                          {cnpjComplete && (
+                            <p
+                              className={cn(
+                                "text-xs",
+                                cnpjOk ? "text-success" : "text-destructive",
+                              )}
+                            >
+                              {cnpjOk ? "CNPJ válido" : "CNPJ inválido. Confira os números."}
+                            </p>
+                          )}
                         </Field>
                       )}
                       <Field id="name" label="Seu nome">

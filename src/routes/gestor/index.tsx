@@ -64,7 +64,7 @@ function WeekAgenda() {
   const [mode, setMode] = useState<"block" | "detail">("block");
   const { data: venue, isLoading: venueLoading } = useMyVenue();
   const venueId = venue?.id;
-  const { data: courts = [] } = useCourts(venueId ? { venueId } : {});
+  const { data: courts = [], isLoading: courtsLoading } = useCourts(venueId ? { venueId } : {});
   const qc = useQueryClient();
   const navigate = useNavigate();
   const key = ["week", venueId, monday];
@@ -122,7 +122,11 @@ function WeekAgenda() {
       return data;
     },
     onSuccess: (n) => {
-      toast.success(n ? `${n} horários criados.` : "Todos os horários já existiam.");
+      if (n) toast.success(`${n} horários criados.`);
+      else
+        toast.info(
+          "Nenhum horário novo: essa semana já tinha todos os horários das quadras ativas.",
+        );
       qc.invalidateQueries({ queryKey: key });
     },
     onError: (e) => toast.error(errMsg(e)),
@@ -185,7 +189,7 @@ function WeekAgenda() {
           ? "Semana passada"
           : null;
 
-  if (venueLoading)
+  if (venueLoading || courtsLoading)
     return <Loader2 className="mx-auto size-6 animate-spin text-muted-foreground" />;
   if (!venue)
     return (
@@ -193,6 +197,19 @@ function WeekAgenda() {
         <Link to="/gestor/configuracao" className="font-semibold text-primary">
           Ir para Configuração
         </Link>
+      </EmptyState>
+    );
+  // A new gestor's venue starts without courts, and generate_week creates slots per active court.
+  if (!courts.length)
+    return (
+      <EmptyState title="Cadastre suas quadras primeiro">
+        <p>
+          Os horários da semana são criados para cada quadra ativa do seu local. Adicione suas
+          quadras com nome, piso e preço por hora.
+        </p>
+        <Button asChild className="mt-4">
+          <Link to="/gestor/configuracao">Cadastrar quadras</Link>
+        </Button>
       </EmptyState>
     );
 
@@ -233,7 +250,8 @@ function WeekAgenda() {
         <div className="mt-6">
           <EmptyState title="Essa semana ainda não tem horários">
             <p>
-              Vamos criar os horários das {courts.length} quadras
+              Vamos criar os horários{" "}
+              {courts.length === 1 ? "da sua quadra" : `das ${courts.length} quadras`}
               {venue && ` das ${venue.open_hour}h às ${venue.close_hour}h`}, todos livres. Depois é
               só marcar o que já está ocupado e publicar.
             </p>

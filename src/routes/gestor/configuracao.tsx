@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCourts, useMyVenue, type Court, type Venue } from "@/lib/booking";
 import { errMsg } from "@/lib/time";
+import { formatCnpj, isValidCnpj, normalizeCnpj } from "@/lib/cnpj";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,6 +63,12 @@ function Settings() {
           </Button>
         </div>
         <div className="mt-3 space-y-3">
+          {courts.length === 0 && (
+            <p className="rounded-xl border border-dashed bg-card p-4 text-sm text-muted-foreground">
+              Nenhuma quadra ainda. Toque em <strong>Adicionar</strong> para cadastrar a primeira e
+              depois gere os horários na Agenda.
+            </p>
+          )}
           {courts.map((c) => (
             <CourtForm key={c.id} court={c} />
           ))}
@@ -74,10 +81,12 @@ function Settings() {
 function CreateVenue() {
   const qc = useQueryClient();
   const [name, setName] = useState("");
+  const [cnpj, setCnpj] = useState("");
   const create = useMutation({
     mutationFn: async (e: FormEvent) => {
       e.preventDefault();
-      const { error } = await supabase.rpc("create_my_venue", { _name: name });
+      if (!isValidCnpj(cnpj)) throw new Error("CNPJ inválido. Confira os números.");
+      const { error } = await supabase.rpc("create_my_venue", { _name: name, _cnpj: cnpj });
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["venue"] }),
@@ -89,12 +98,19 @@ function CreateVenue() {
       <p className="mt-1 text-sm text-muted-foreground">
         Depois você completa endereço, Pix e quadras.
       </p>
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
         <Input
           required
           placeholder="Ex.: Arena Pampulha"
           value={name}
           onChange={(e) => setName(e.target.value)}
+        />
+        <Input
+          required
+          autoCapitalize="characters"
+          placeholder="CNPJ"
+          value={cnpj}
+          onChange={(e) => setCnpj(formatCnpj(e.target.value))}
         />
         <Button type="submit" disabled={create.isPending}>
           Criar
@@ -107,7 +123,11 @@ function CreateVenue() {
 function VenueForm({ venue }: { venue: Venue }) {
   const qc = useQueryClient();
   const [f, setF] = useState(venue);
-  useEffect(() => setF(venue), [venue]);
+  const [cnpj, setCnpj] = useState(formatCnpj(venue.cnpj ?? ""));
+  useEffect(() => {
+    setF(venue);
+    setCnpj(formatCnpj(venue.cnpj ?? ""));
+  }, [venue]);
   const str = (k: "name" | "address" | "neighborhood" | "pix_key" | "whatsapp") => ({
     value: f[k],
     onChange: (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value }),
@@ -128,9 +148,11 @@ function VenueForm({ venue }: { venue: Venue }) {
         throw new Error("Horário de funcionamento inválido.");
       if (f.payment_deadline_hours < 1)
         throw new Error("O prazo de pagamento precisa ser de pelo menos 1 hora.");
+      if (!isValidCnpj(cnpj)) throw new Error("CNPJ inválido. Confira os números.");
       const { error } = await supabase
         .from("venues")
         .update({
+          cnpj: normalizeCnpj(cnpj),
           name: f.name.trim(),
           address: f.address.trim(),
           neighborhood: f.neighborhood.trim(),
@@ -142,6 +164,8 @@ function VenueForm({ venue }: { venue: Venue }) {
           close_hour: f.close_hour,
         })
         .eq("id", venue.id);
+      // 23505 = unique violation on venues_cnpj_unique.
+      if (error?.code === "23505") throw new Error("Esse CNPJ já tem outro local cadastrado.");
       if (error) throw error;
     },
     onSuccess: () => {
@@ -159,6 +183,19 @@ function VenueForm({ venue }: { venue: Venue }) {
     >
       <F label="Nome do local">
         <Input required {...str("name")} />
+      </F>
+      <F
+        label="CNPJ"
+        hint={venue.cnpj ? undefined : "Obrigatório. Preencha para continuar recebendo reservas."}
+      >
+        <Input
+          required
+          autoCapitalize="characters"
+          placeholder="00.000.000/0000-00"
+          value={cnpj}
+          onChange={(e) => setCnpj(formatCnpj(e.target.value))}
+          aria-invalid={normalizeCnpj(cnpj).length === 14 && !isValidCnpj(cnpj)}
+        />
       </F>
       <F label="Endereço">
         <Input placeholder="Rua, número" {...str("address")} />
@@ -278,7 +315,15 @@ function CourtForm({ court }: { court: Court }) {
   );
 }
 
-function F({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function F({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string | undefined;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1.5">
       <Label className="text-xs">{label}</Label>

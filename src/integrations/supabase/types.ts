@@ -240,6 +240,7 @@ export type Database = {
           address: string
           cancel_limit_hours: number
           city: string
+          cnpj: string | null
           close_hour: number
           created_at: string
           id: string
@@ -254,6 +255,7 @@ export type Database = {
           address?: string
           cancel_limit_hours?: number
           city?: string
+          cnpj?: string | null
           close_hour?: number
           created_at?: string
           id?: string
@@ -268,6 +270,7 @@ export type Database = {
           address?: string
           cancel_limit_hours?: number
           city?: string
+          cnpj?: string | null
           close_hour?: number
           created_at?: string
           id?: string
@@ -320,7 +323,8 @@ export type Database = {
       cancel_booking: { Args: { _booking: string }; Returns: undefined }
       confirm_booking: { Args: { _booking: string }; Returns: undefined }
       expire_bookings: { Args: never; Returns: number }
-      create_my_venue: { Args: { _name: string }; Returns: string }
+      cnpj_in_use: { Args: { _cnpj: string }; Returns: boolean }
+      create_my_venue: { Args: { _cnpj: string; _name: string }; Returns: string }
       generate_week: { Args: { _monday: string; _venue: string }; Returns: number }
       get_agenda: {
         Args: { _day: string }
@@ -341,6 +345,7 @@ export type Database = {
           venue_name: string
         }[]
       }
+      is_valid_cnpj: { Args: { _v: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -351,6 +356,7 @@ export type Database = {
       manages_court: { Args: { _court: string }; Returns: boolean }
       manages_slot: { Args: { _slot: string }; Returns: boolean }
       manages_venue: { Args: { _venue: string }; Returns: boolean }
+      normalize_cnpj: { Args: { _v: string }; Returns: string }
       notify_waitlist: { Args: { _slot: string }; Returns: undefined }
       publish_week: {
         Args: { _monday: string; _publish?: boolean; _venue: string }
