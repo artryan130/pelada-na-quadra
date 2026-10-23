@@ -1,8 +1,9 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { CalendarDays, Ticket } from "lucide-react";
+import { CalendarDays, Search, Ticket } from "lucide-react";
 import { AppShell, type NavItem } from "@/components/app-shell";
 
 const NAV: NavItem[] = [
+  { to: "/buscar", label: "Buscar", icon: Search },
   { to: "/agenda", label: "Agenda", icon: CalendarDays },
   { to: "/minhas-reservas", label: "Minhas reservas", icon: Ticket },
 ];

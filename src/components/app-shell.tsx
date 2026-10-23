@@ -27,7 +27,7 @@ export function useRequireRole(required: Role) {
   useEffect(() => {
     if (loading) return;
     if (!session) navigate({ to: "/auth", search: { mode: "login" } });
-    else if (role && role !== required) navigate({ to: role === "gestor" ? "/gestor" : "/agenda" });
+    else if (role && role !== required) navigate({ to: role === "gestor" ? "/gestor" : "/buscar" });
   }, [loading, session, role, required, navigate]);
   return !loading && !!session && role === required;
 }

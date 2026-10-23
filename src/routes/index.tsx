@@ -20,7 +20,7 @@ function Index() {
   const { session, role, loading } = useAuth();
   const navigate = useNavigate();
   useEffect(() => {
-    if (!loading && session && role) navigate({ to: role === "gestor" ? "/gestor" : "/agenda" });
+    if (!loading && session && role) navigate({ to: role === "gestor" ? "/gestor" : "/buscar" });
   }, [loading, session, role, navigate]);
 
   return (

@@ -39,7 +39,7 @@ function BookingPage() {
       const { data, error } = await supabase
         .from("bookings")
         .select(
-          "id, status, created_at, expires_at, slots(starts_at, duration_min, courts(name, surface, price_per_hour, venues(name, address, pix_key, whatsapp, cancel_limit_hours)))",
+          "id, status, preco, created_at, expires_at, slots(starts_at, duration_min, courts(name, surface, price_per_hour, venues(name, address, pix_key, whatsapp, cancel_limit_hours)))",
         )
         .eq("id", bookingId)
         .maybeSingle();
@@ -104,7 +104,7 @@ function BookingPage() {
           {fmtDateLong(slot.starts_at)} · {fmtTime(slot.starts_at)}
         </p>
         <p className="mt-2 text-sm">
-          Valor: <strong>{brl(Number(court.price_per_hour))}</strong>
+          Valor: <strong>{brl(Number(b.preco ?? court.price_per_hour))}</strong>
         </p>
       </div>
 
@@ -134,7 +134,7 @@ function BookingPage() {
               </Button>
             </div>
             <p className="mt-3 text-sm">
-              Valor: <strong>{brl(Number(court.price_per_hour))}</strong>
+              Valor: <strong>{brl(Number(b.preco ?? court.price_per_hour))}</strong>
             </p>
           </div>
           <p className="mt-4 text-sm opacity-90">

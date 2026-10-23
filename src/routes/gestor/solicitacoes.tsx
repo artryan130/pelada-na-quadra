@@ -25,7 +25,7 @@ function Requests() {
       const { data, error } = await supabase
         .from("bookings")
         .select(
-          "id, slot_id, organizer_id, created_at, expires_at, from_waitlist, slots(starts_at, courts(name, price_per_hour))",
+          "id, slot_id, organizer_id, created_at, expires_at, from_waitlist, preco, slots(starts_at, courts(name, price_per_hour))",
         )
         .eq("status", "pendente")
         .order("created_at");
@@ -99,7 +99,7 @@ function Requests() {
                         )}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {brl(Number(b.slots?.courts?.price_per_hour ?? 0))} · expira em{" "}
+                        {brl(Number(b.preco ?? b.slots?.courts?.price_per_hour ?? 0))} · expira em{" "}
                         <span className="font-semibold tabular-nums text-foreground">
                           {fmtCountdown(left)}
                         </span>

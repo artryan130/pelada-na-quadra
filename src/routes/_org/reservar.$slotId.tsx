@@ -23,12 +23,21 @@ function ConfirmRequest() {
       const { data, error } = await supabase
         .from("slots")
         .select(
-          "id, starts_at, duration_min, courts(name, surface, photo_url, price_per_hour, venues(name, address, neighborhood, payment_deadline_hours, cancel_limit_hours))",
+          "id, court_id, starts_at, duration_min, courts(name, surface, photo_url, price_per_hour, venues(name, address, neighborhood, payment_deadline_hours, cancel_limit_hours))",
         )
         .eq("id", slotId)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      if (!data) return null;
+      // Same price request_booking will store: the price table, falling back to the old hourly price.
+      const { data: preco } = await supabase.rpc("preco_intervalo", {
+        _court: data.court_id,
+        _inicio: data.starts_at,
+        _fim: new Date(
+          new Date(data.starts_at).getTime() + data.duration_min * 60_000,
+        ).toISOString(),
+      });
+      return { ...data, preco: preco ?? data.courts?.price_per_hour ?? 0 };
     },
   });
 
@@ -88,7 +97,7 @@ function ConfirmRequest() {
             </Row>
           )}
           <Row icon={Wallet}>
-            <strong>{brl(Number(court.price_per_hour))}</strong> por Pix, direto para a quadra
+            <strong>{brl(Number(slot.preco))}</strong> por Pix, direto para a quadra
           </Row>
         </div>
       </div>

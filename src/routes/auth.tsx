@@ -59,7 +59,7 @@ function AuthPage() {
   const signedInElsewhere = mode === "signup" && !!session && !sent;
   useEffect(() => {
     if (mode === "login" && !loading && session && role)
-      navigate({ to: role === "gestor" ? "/gestor" : "/agenda" });
+      navigate({ to: role === "gestor" ? "/gestor" : "/buscar" });
   }, [mode, loading, session, role, navigate]);
 
   const submit = async (e: FormEvent) => {
@@ -141,7 +141,7 @@ function AuthPage() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => navigate({ to: role === "gestor" ? "/gestor" : "/agenda" })}
+                    onClick={() => navigate({ to: role === "gestor" ? "/gestor" : "/buscar" })}
                   >
                     Continuar com esta conta
                   </Button>

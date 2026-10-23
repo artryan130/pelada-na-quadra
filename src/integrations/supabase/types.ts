@@ -21,6 +21,7 @@ export type Database = {
           from_waitlist: boolean
           id: string
           organizer_id: string
+          preco: number | null
           slot_id: string
           status: Database["public"]["Enums"]["booking_status"]
           updated_at: string
@@ -31,6 +32,7 @@ export type Database = {
           from_waitlist?: boolean
           id?: string
           organizer_id: string
+          preco?: number | null
           slot_id: string
           status?: Database["public"]["Enums"]["booking_status"]
           updated_at?: string
@@ -41,6 +43,7 @@ export type Database = {
           from_waitlist?: boolean
           id?: string
           organizer_id?: string
+          preco?: number | null
           slot_id?: string
           status?: Database["public"]["Enums"]["booking_status"]
           updated_at?: string
@@ -60,6 +63,7 @@ export type Database = {
           active: boolean
           created_at: string
           id: string
+          modalidade: Database["public"]["Enums"]["modalidade"]
           name: string
           photo_url: string | null
           price_per_hour: number
@@ -70,6 +74,7 @@ export type Database = {
           active?: boolean
           created_at?: string
           id?: string
+          modalidade?: Database["public"]["Enums"]["modalidade"]
           name: string
           photo_url?: string | null
           price_per_hour?: number
@@ -80,6 +85,7 @@ export type Database = {
           active?: boolean
           created_at?: string
           id?: string
+          modalidade?: Database["public"]["Enums"]["modalidade"]
           name?: string
           photo_url?: string | null
           price_per_hour?: number
@@ -209,6 +215,173 @@ export type Database = {
         }
         Relationships: []
       }
+      bairros_bh: {
+        Row: {
+          lat: number
+          lng: number
+          nome: string
+        }
+        Insert: {
+          lat: number
+          lng: number
+          nome: string
+        }
+        Update: {
+          lat?: number
+          lng?: number
+          nome?: string
+        }
+        Relationships: []
+      }
+      horarios_funcionamento: {
+        Row: {
+          abre: string
+          court_id: string
+          created_at: string
+          dia_semana: number
+          fecha: string
+          id: string
+        }
+        Insert: {
+          abre: string
+          court_id: string
+          created_at?: string
+          dia_semana: number
+          fecha: string
+          id?: string
+        }
+        Update: {
+          abre?: string
+          court_id?: string
+          created_at?: string
+          dia_semana?: number
+          fecha?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "horarios_funcionamento_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mensalistas: {
+        Row: {
+          court_id: string
+          created_at: string
+          dia_semana: number
+          fim: string
+          id: string
+          inicio: string
+          nome: string
+          valido_ate: string | null
+          valido_de: string
+        }
+        Insert: {
+          court_id: string
+          created_at?: string
+          dia_semana: number
+          fim: string
+          id?: string
+          inicio: string
+          nome?: string
+          valido_ate?: string | null
+          valido_de?: string
+        }
+        Update: {
+          court_id?: string
+          created_at?: string
+          dia_semana?: number
+          fim?: string
+          id?: string
+          inicio?: string
+          nome?: string
+          valido_ate?: string | null
+          valido_de?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensalistas_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      precos_faltando: {
+        Row: {
+          bloco: string
+          court_id: string
+          dia_semana: number
+          vezes: number
+          visto_em: string
+        }
+        Insert: {
+          bloco: string
+          court_id: string
+          dia_semana: number
+          vezes?: number
+          visto_em?: string
+        }
+        Update: {
+          bloco?: string
+          court_id?: string
+          dia_semana?: number
+          vezes?: number
+          visto_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "precos_faltando_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regras_preco: {
+        Row: {
+          court_id: string
+          created_at: string
+          dia_semana: number
+          fim: string
+          id: string
+          inicio: string
+          preco_bloco: number
+        }
+        Insert: {
+          court_id: string
+          created_at?: string
+          dia_semana: number
+          fim: string
+          id?: string
+          inicio: string
+          preco_bloco: number
+        }
+        Update: {
+          court_id?: string
+          created_at?: string
+          dia_semana?: number
+          fim?: string
+          id?: string
+          inicio?: string
+          preco_bloco?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regras_preco_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_managers: {
         Row: {
           created_at: string
@@ -238,12 +411,16 @@ export type Database = {
       venues: {
         Row: {
           address: string
+          agenda_verificada: boolean
+          antecedencia_min_minutos: number
           cancel_limit_hours: number
           city: string
           cnpj: string | null
           close_hour: number
           created_at: string
           id: string
+          lat: number | null
+          lng: number | null
           name: string
           neighborhood: string
           open_hour: number
@@ -253,12 +430,16 @@ export type Database = {
         }
         Insert: {
           address?: string
+          agenda_verificada?: boolean
+          antecedencia_min_minutos?: number
           cancel_limit_hours?: number
           city?: string
           cnpj?: string | null
           close_hour?: number
           created_at?: string
           id?: string
+          lat?: number | null
+          lng?: number | null
           name?: string
           neighborhood?: string
           open_hour?: number
@@ -268,12 +449,16 @@ export type Database = {
         }
         Update: {
           address?: string
+          agenda_verificada?: boolean
+          antecedencia_min_minutos?: number
           cancel_limit_hours?: number
           city?: string
           cnpj?: string | null
           close_hour?: number
           created_at?: string
           id?: string
+          lat?: number | null
+          lng?: number | null
           name?: string
           neighborhood?: string
           open_hour?: number
@@ -323,9 +508,40 @@ export type Database = {
       cancel_booking: { Args: { _booking: string }; Returns: undefined }
       confirm_booking: { Args: { _booking: string }; Returns: undefined }
       expire_bookings: { Args: never; Returns: number }
+      buscar_quadras: {
+        Args: {
+          _data: string
+          _duracao_min?: number
+          _hora: string
+          _lat?: number
+          _lng?: number
+          _modalidade?: Database["public"]["Enums"]["modalidade"]
+          _ordem?: string
+          _raio_km?: number
+        }
+        Returns: {
+          court_id: string
+          court_name: string
+          diferenca_min: number
+          distancia_km: number | null
+          exato: boolean
+          fim: string
+          inicio: string
+          modalidade: Database["public"]["Enums"]["modalidade"]
+          neighborhood: string
+          photo_url: string | null
+          preco_total: number
+          venue_id: string
+          venue_name: string
+        }[]
+      }
       cnpj_in_use: { Args: { _cnpj: string }; Returns: boolean }
       create_my_venue: { Args: { _cnpj: string; _name: string }; Returns: string }
       generate_week: { Args: { _monday: string; _venue: string }; Returns: number }
+      disponibilidade_quadra: {
+        Args: { _court: string; _fim: string; _inicio: string }
+        Returns: { livre: boolean; motivo: string | null; preco_total: number | null }[]
+      }
       get_agenda: {
         Args: { _day: string }
         Returns: {
@@ -362,6 +578,10 @@ export type Database = {
         Args: { _monday: string; _publish?: boolean; _venue: string }
         Returns: undefined
       }
+      preco_intervalo: {
+        Args: { _court: string; _fim: string; _inicio: string }
+        Returns: number | null
+      }
       reject_booking: { Args: { _booking: string }; Returns: undefined }
       request_booking: { Args: { _slot: string }; Returns: string }
       set_slot_blocked: {
@@ -372,6 +592,7 @@ export type Database = {
     }
     Enums: {
       app_role: "gestor" | "organizador"
+      modalidade: "futsal" | "society"
       booking_status:
         | "pendente"
         | "confirmada"
@@ -506,6 +727,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["gestor", "organizador"],
+      modalidade: ["futsal", "society"],
       booking_status: [
         "pendente",
         "confirmada",
