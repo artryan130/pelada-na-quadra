@@ -22,8 +22,7 @@ import { Route as GestorConfiguracaoRouteImport } from './routes/gestor/configur
 import { Route as GestorSolicitacoesRouteImport } from './routes/gestor/solicitacoes'
 import { Route as OrgQuadraCourtIdRouteImport } from './routes/_org/quadra.$courtId'
 import { Route as OrgReservaBookingIdRouteImport } from './routes/_org/reserva.$bookingId'
-import { Route as OrgReservarSlotIdRouteImport } from './routes/_org/reservar.$slotId'
-import { Route as GestorHorarioSlotIdRouteImport } from './routes/gestor/horario.$slotId'
+import { Route as GestorHorarioCourtIdRouteImport } from './routes/gestor/horario.$courtId'
 import { Route as GestorQuadraCourtIdRouteImport } from './routes/gestor/quadra.$courtId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -90,14 +89,9 @@ const OrgReservaBookingIdRoute = OrgReservaBookingIdRouteImport.update({
   path: '/reserva/$bookingId',
   getParentRoute: () => OrgRoute,
 } as any)
-const OrgReservarSlotIdRoute = OrgReservarSlotIdRouteImport.update({
-  id: '/reservar/$slotId',
-  path: '/reservar/$slotId',
-  getParentRoute: () => OrgRoute,
-} as any)
-const GestorHorarioSlotIdRoute = GestorHorarioSlotIdRouteImport.update({
-  id: '/horario/$slotId',
-  path: '/horario/$slotId',
+const GestorHorarioCourtIdRoute = GestorHorarioCourtIdRouteImport.update({
+  id: '/horario/$courtId',
+  path: '/horario/$courtId',
   getParentRoute: () => GestorRoute,
 } as any)
 const GestorQuadraCourtIdRoute = GestorQuadraCourtIdRouteImport.update({
@@ -119,8 +113,7 @@ export interface FileRoutesByFullPath {
   '/gestor/': typeof GestorIndexRoute
   '/quadra/$courtId': typeof OrgQuadraCourtIdRoute
   '/reserva/$bookingId': typeof OrgReservaBookingIdRoute
-  '/reservar/$slotId': typeof OrgReservarSlotIdRoute
-  '/gestor/horario/$slotId': typeof GestorHorarioSlotIdRoute
+  '/gestor/horario/$courtId': typeof GestorHorarioCourtIdRoute
   '/gestor/quadra/$courtId': typeof GestorQuadraCourtIdRoute
 }
 export interface FileRoutesByTo {
@@ -135,8 +128,7 @@ export interface FileRoutesByTo {
   '/gestor': typeof GestorIndexRoute
   '/quadra/$courtId': typeof OrgQuadraCourtIdRoute
   '/reserva/$bookingId': typeof OrgReservaBookingIdRoute
-  '/reservar/$slotId': typeof OrgReservarSlotIdRoute
-  '/gestor/horario/$slotId': typeof GestorHorarioSlotIdRoute
+  '/gestor/horario/$courtId': typeof GestorHorarioCourtIdRoute
   '/gestor/quadra/$courtId': typeof GestorQuadraCourtIdRoute
 }
 export interface FileRoutesById {
@@ -154,8 +146,7 @@ export interface FileRoutesById {
   '/gestor/': typeof GestorIndexRoute
   '/_org/quadra/$courtId': typeof OrgQuadraCourtIdRoute
   '/_org/reserva/$bookingId': typeof OrgReservaBookingIdRoute
-  '/_org/reservar/$slotId': typeof OrgReservarSlotIdRoute
-  '/gestor/horario/$slotId': typeof GestorHorarioSlotIdRoute
+  '/gestor/horario/$courtId': typeof GestorHorarioCourtIdRoute
   '/gestor/quadra/$courtId': typeof GestorQuadraCourtIdRoute
 }
 export interface FileRouteTypes {
@@ -173,8 +164,7 @@ export interface FileRouteTypes {
     | '/gestor/'
     | '/quadra/$courtId'
     | '/reserva/$bookingId'
-    | '/reservar/$slotId'
-    | '/gestor/horario/$slotId'
+    | '/gestor/horario/$courtId'
     | '/gestor/quadra/$courtId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -189,8 +179,7 @@ export interface FileRouteTypes {
     | '/gestor'
     | '/quadra/$courtId'
     | '/reserva/$bookingId'
-    | '/reservar/$slotId'
-    | '/gestor/horario/$slotId'
+    | '/gestor/horario/$courtId'
     | '/gestor/quadra/$courtId'
   id:
     | '__root__'
@@ -207,8 +196,7 @@ export interface FileRouteTypes {
     | '/gestor/'
     | '/_org/quadra/$courtId'
     | '/_org/reserva/$bookingId'
-    | '/_org/reservar/$slotId'
-    | '/gestor/horario/$slotId'
+    | '/gestor/horario/$courtId'
     | '/gestor/quadra/$courtId'
   fileRoutesById: FileRoutesById
 }
@@ -313,18 +301,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrgReservaBookingIdRouteImport
       parentRoute: typeof OrgRoute
     }
-    '/_org/reservar/$slotId': {
-      id: '/_org/reservar/$slotId'
-      path: '/reservar/$slotId'
-      fullPath: '/reservar/$slotId'
-      preLoaderRoute: typeof OrgReservarSlotIdRouteImport
-      parentRoute: typeof OrgRoute
-    }
-    '/gestor/horario/$slotId': {
-      id: '/gestor/horario/$slotId'
-      path: '/horario/$slotId'
-      fullPath: '/gestor/horario/$slotId'
-      preLoaderRoute: typeof GestorHorarioSlotIdRouteImport
+    '/gestor/horario/$courtId': {
+      id: '/gestor/horario/$courtId'
+      path: '/horario/$courtId'
+      fullPath: '/gestor/horario/$courtId'
+      preLoaderRoute: typeof GestorHorarioCourtIdRouteImport
       parentRoute: typeof GestorRoute
     }
     '/gestor/quadra/$courtId': {
@@ -343,7 +324,6 @@ interface OrgRouteChildren {
   OrgMinhasReservasRoute: typeof OrgMinhasReservasRoute
   OrgQuadraCourtIdRoute: typeof OrgQuadraCourtIdRoute
   OrgReservaBookingIdRoute: typeof OrgReservaBookingIdRoute
-  OrgReservarSlotIdRoute: typeof OrgReservarSlotIdRoute
 }
 
 const OrgRouteChildren: OrgRouteChildren = {
@@ -352,7 +332,6 @@ const OrgRouteChildren: OrgRouteChildren = {
   OrgMinhasReservasRoute: OrgMinhasReservasRoute,
   OrgQuadraCourtIdRoute: OrgQuadraCourtIdRoute,
   OrgReservaBookingIdRoute: OrgReservaBookingIdRoute,
-  OrgReservarSlotIdRoute: OrgReservarSlotIdRoute,
 }
 
 const OrgRouteWithChildren = OrgRoute._addFileChildren(OrgRouteChildren)
@@ -361,7 +340,7 @@ interface GestorRouteChildren {
   GestorConfiguracaoRoute: typeof GestorConfiguracaoRoute
   GestorSolicitacoesRoute: typeof GestorSolicitacoesRoute
   GestorIndexRoute: typeof GestorIndexRoute
-  GestorHorarioSlotIdRoute: typeof GestorHorarioSlotIdRoute
+  GestorHorarioCourtIdRoute: typeof GestorHorarioCourtIdRoute
   GestorQuadraCourtIdRoute: typeof GestorQuadraCourtIdRoute
 }
 
@@ -369,7 +348,7 @@ const GestorRouteChildren: GestorRouteChildren = {
   GestorConfiguracaoRoute: GestorConfiguracaoRoute,
   GestorSolicitacoesRoute: GestorSolicitacoesRoute,
   GestorIndexRoute: GestorIndexRoute,
-  GestorHorarioSlotIdRoute: GestorHorarioSlotIdRoute,
+  GestorHorarioCourtIdRoute: GestorHorarioCourtIdRoute,
   GestorQuadraCourtIdRoute: GestorQuadraCourtIdRoute,
 }
 

@@ -16,39 +16,55 @@ export type Database = {
     Tables: {
       bookings: {
         Row: {
+          court_id: string
+          ends_at: string
           created_at: string
           expires_at: string
           from_waitlist: boolean
           id: string
           organizer_id: string
           preco: number | null
-          slot_id: string
+          slot_id: string | null
+          starts_at: string
           status: Database["public"]["Enums"]["booking_status"]
           updated_at: string
         }
         Insert: {
+          court_id: string
+          ends_at: string
           created_at?: string
           expires_at: string
           from_waitlist?: boolean
           id?: string
           organizer_id: string
           preco?: number | null
-          slot_id: string
+          slot_id?: string | null
+          starts_at: string
           status?: Database["public"]["Enums"]["booking_status"]
           updated_at?: string
         }
         Update: {
+          court_id?: string
+          ends_at?: string
           created_at?: string
           expires_at?: string
           from_waitlist?: boolean
           id?: string
           organizer_id?: string
           preco?: number | null
-          slot_id?: string
+          slot_id?: string | null
+          starts_at?: string
           status?: Database["public"]["Enums"]["booking_status"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "bookings_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bookings_slot_id_fkey"
             columns: ["slot_id"]
@@ -382,6 +398,50 @@ export type Database = {
           },
         ]
       }
+      bloqueios: {
+        Row: {
+          court_id: string
+          created_at: string
+          created_by: string | null
+          ends_at: string
+          id: string
+          nota: string | null
+          starts_at: string
+        }
+        Insert: {
+          court_id: string
+          created_at?: string
+          created_by?: string | null
+          ends_at: string
+          id?: string
+          nota?: string | null
+          starts_at: string
+        }
+        Update: {
+          court_id?: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string
+          id?: string
+          nota?: string | null
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bloqueios_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      semanas_publicadas: {
+        Row: { publicada_em: string; segunda: string; venue_id: string }
+        Insert: { publicada_em?: string; segunda: string; venue_id: string }
+        Update: { publicada_em?: string; segunda?: string; venue_id?: string }
+        Relationships: []
+      }
       venue_managers: {
         Row: {
           created_at: string
@@ -470,27 +530,43 @@ export type Database = {
       }
       waitlist: {
         Row: {
+          court_id: string
+          ends_at: string
           created_at: string
           id: string
           notified_at: string | null
           organizer_id: string
-          slot_id: string
+          slot_id: string | null
+          starts_at: string
         }
         Insert: {
+          court_id: string
+          ends_at: string
           created_at?: string
           id?: string
           notified_at?: string | null
           organizer_id: string
-          slot_id: string
+          slot_id?: string | null
+          starts_at: string
         }
         Update: {
+          court_id?: string
+          ends_at?: string
           created_at?: string
           id?: string
           notified_at?: string | null
           organizer_id?: string
-          slot_id?: string
+          slot_id?: string | null
+          starts_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "waitlist_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "waitlist_slot_id_fkey"
             columns: ["slot_id"]
@@ -507,7 +583,40 @@ export type Database = {
     Functions: {
       cancel_booking: { Args: { _booking: string }; Returns: undefined }
       confirm_booking: { Args: { _booking: string }; Returns: undefined }
+      entrar_fila: { Args: { _court: string; _fim: string; _inicio: string }; Returns: string | null }
       expire_bookings: { Args: never; Returns: number }
+      agenda_dia: {
+        Args: { _day: string; _venue?: string }
+        Returns: {
+          court_id: string
+          court_name: string
+          in_waitlist: boolean
+          inicio: string
+          modalidade: Database["public"]["Enums"]["modalidade"]
+          my_booking_id: string | null
+          my_booking_status: Database["public"]["Enums"]["booking_status"] | null
+          neighborhood: string
+          price: number
+          state: string
+          venue_id: string
+          venue_name: string
+        }[]
+      }
+      agenda_gestor: {
+        Args: { _monday: string; _venue: string }
+        Returns: {
+          booking_fim: string | null
+          booking_id: string | null
+          booking_inicio: string | null
+          court_id: string
+          dia: string
+          estado: string
+          fila: number
+          hora: number
+          inicio: string
+          nota: string | null
+        }[]
+      }
       buscar_quadras: {
         Args: {
           _data: string
@@ -537,29 +646,9 @@ export type Database = {
       }
       cnpj_in_use: { Args: { _cnpj: string }; Returns: boolean }
       create_my_venue: { Args: { _cnpj: string; _name: string }; Returns: string }
-      generate_week: { Args: { _monday: string; _venue: string }; Returns: number }
       disponibilidade_quadra: {
         Args: { _court: string; _fim: string; _inicio: string }
         Returns: { livre: boolean; motivo: string | null; preco_total: number | null }[]
-      }
-      get_agenda: {
-        Args: { _day: string }
-        Returns: {
-          court_id: string
-          court_name: string
-          in_waitlist: boolean
-          my_booking_id: string
-          my_booking_status: Database["public"]["Enums"]["booking_status"]
-          photo_url: string
-          price: number
-          slot_id: string
-          starts_at: string
-          state: string
-          surface: string
-          neighborhood: string
-          venue_id: string
-          venue_name: string
-        }[]
       }
       is_valid_cnpj: { Args: { _v: string }; Returns: boolean }
       has_role: {
@@ -573,7 +662,6 @@ export type Database = {
       manages_slot: { Args: { _slot: string }; Returns: boolean }
       manages_venue: { Args: { _venue: string }; Returns: boolean }
       normalize_cnpj: { Args: { _v: string }; Returns: string }
-      notify_waitlist: { Args: { _slot: string }; Returns: undefined }
       publish_week: {
         Args: { _monday: string; _publish?: boolean; _venue: string }
         Returns: undefined
@@ -582,13 +670,15 @@ export type Database = {
         Args: { _court: string; _fim: string; _inicio: string }
         Returns: number | null
       }
+      motivo_texto: { Args: { _motivo: string }; Returns: string }
+      quadra_link: { Args: { _court: string; _fim: string; _inicio: string }; Returns: string }
+      reserva_label: { Args: { _court: string; _fim: string; _inicio: string }; Returns: string }
       reject_booking: { Args: { _booking: string }; Returns: undefined }
-      request_booking: { Args: { _slot: string }; Returns: string }
-      set_slot_blocked: {
-        Args: { _blocked: boolean; _note?: string; _slot: string }
+      set_bloqueio: {
+        Args: { _bloquear: boolean; _court: string; _fim: string; _inicio: string; _nota?: string }
         Returns: undefined
       }
-      slot_label: { Args: { _slot: string }; Returns: string }
+      request_booking: { Args: { _court: string; _fim: string; _inicio: string }; Returns: string }
     }
     Enums: {
       app_role: "gestor" | "organizador"

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
+import { btree_gist } from "@electric-sql/pglite/contrib/btree_gist";
 
 // Minimal stand-ins for what Supabase provides, so the real migrations run unchanged.
 const SUPABASE_STUBS = `
@@ -12,23 +13,27 @@ const SUPABASE_STUBS = `
   create publication supabase_realtime;
 `;
 
-const MIGRATIONS = [
+export const MIGRATIONS = [
   "0000_quadras_mvp",
   "0001_multi_local_bh",
   "0002_cnpj_local",
   "0003_busca_horario",
+  "0004_reserva_intervalo",
 ];
+
+export function migrationSql(name: string): string {
+  return readFileSync(path.resolve(__dirname, `../../drizzle/migrations/${name}.sql`), "utf8");
+}
 
 /** A fresh Postgres (WASM, in-process) with every migration applied. */
 export async function createTestDb(): Promise<PGlite> {
-  const db = new PGlite();
+  const db = new PGlite({ extensions: { btree_gist } });
   await db.exec(SUPABASE_STUBS);
-  for (const name of MIGRATIONS) {
-    const sql = readFileSync(
-      path.resolve(__dirname, `../../drizzle/migrations/${name}.sql`),
-      "utf8",
-    );
-    await db.exec(sql);
-  }
+  for (const name of MIGRATIONS) await db.exec(migrationSql(name));
   return db;
+}
+
+/** Acts as this user for auth.uid() in the following statements. */
+export async function asUser(db: PGlite, userId: string | null) {
+  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [userId ?? ""]);
 }

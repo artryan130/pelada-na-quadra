@@ -4,7 +4,7 @@ import { Check, Loader2, MessageCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchProfiles, fmtCountdown, useNow, whatsappLink } from "@/lib/booking";
-import { brl, errMsg, fmtDateTime } from "@/lib/time";
+import { brl, errMsg, fmtDateTime, fmtTime } from "@/lib/time";
 import { EmptyState } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 
@@ -25,7 +25,7 @@ function Requests() {
       const { data, error } = await supabase
         .from("bookings")
         .select(
-          "id, slot_id, organizer_id, created_at, expires_at, from_waitlist, preco, slots(starts_at, courts(name, price_per_hour))",
+          "id, court_id, organizer_id, created_at, expires_at, from_waitlist, preco, starts_at, ends_at, courts(name, price_per_hour)",
         )
         .eq("status", "pendente")
         .order("created_at");
@@ -83,13 +83,19 @@ function Requests() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <Link
-                        to="/gestor/horario/$slotId"
-                        params={{ slotId: b.slot_id }}
+                        to="/gestor/horario/$courtId"
+                        params={{ courtId: b.court_id }}
+                        // The week grid is hourly: open the hour the booking starts in.
+                        search={{
+                          inicio: new Date(
+                            Math.floor(new Date(b.starts_at).getTime() / 3_600_000) * 3_600_000,
+                          ).toISOString(),
+                        }}
                         className="font-display text-lg font-bold"
                       >
-                        {b.slots?.courts?.name} ·{" "}
+                        {b.courts?.name} ·{" "}
                         <span className="capitalize">
-                          {b.slots && fmtDateTime(b.slots.starts_at)}
+                          {fmtDateTime(b.starts_at)}–{fmtTime(b.ends_at)}
                         </span>
                       </Link>
                       <p className="text-sm">
@@ -99,7 +105,7 @@ function Requests() {
                         )}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {brl(Number(b.preco ?? b.slots?.courts?.price_per_hour ?? 0))} · expira em{" "}
+                        {brl(Number(b.preco ?? b.courts?.price_per_hour ?? 0))} · expira em{" "}
                         <span className="font-semibold tabular-nums text-foreground">
                           {fmtCountdown(left)}
                         </span>

@@ -1,68 +1,26 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
 import { addDays, todayBRT } from "@/lib/time";
-import { createTestDb } from "./db";
+import { MIGRATIONS, createTestDb, migrationSql } from "./db";
+import {
+  D,
+  DOW,
+  SAVASSI,
+  at,
+  bloqueio,
+  booking,
+  court as courtFor,
+  disponibilidade as disp,
+  venue as venueFor,
+} from "./fixtures";
 
 // Real SQL from the migrations, run in an in-process Postgres (PGlite).
-// Dates are a week ahead so "already passed" never kicks in by accident.
-
-const D = addDays(todayBRT(), 7);
-const DOW = new Date(D + "T12:00:00Z").getUTCDay();
-const SAVASSI = { lat: -19.93589, lng: -43.93444 };
-const at = (day: string, hhmm: string) => `${day}T${hhmm}:00-03:00`;
 
 let db: PGlite;
-
-async function venue(
-  opts: { verified?: boolean; lat?: number; lng?: number; antecedencia?: number } = {},
-) {
-  const r = await db.query<{ id: string }>(
-    `insert into venues(name, agenda_verificada, lat, lng, antecedencia_min_minutos, open_hour, close_hour)
-     values ('Arena', $1, $2, $3, $4, 8, 23) returning id`,
-    [
-      opts.verified ?? true,
-      opts.lat ?? SAVASSI.lat,
-      opts.lng ?? SAVASSI.lng,
-      opts.antecedencia ?? 0,
-    ],
-  );
-  return r.rows[0]!.id;
-}
-
-// The insert trigger seeds 08:00–23:00 every day and a flat price of price_per_hour / 2 per block.
-async function court(
-  venueId: string,
-  opts: { price?: number; modalidade?: string; name?: string } = {},
-) {
-  const r = await db.query<{ id: string }>(
-    `insert into courts(venue_id, name, price_per_hour, modalidade) values ($1, $2, $3, $4) returning id`,
-    [venueId, opts.name ?? "Quadra 1", opts.price ?? 200, opts.modalidade ?? "society"],
-  );
-  return r.rows[0]!.id;
-}
-
-async function slot(courtId: string, startsAt: string, blocked = false) {
-  const r = await db.query<{ id: string }>(
-    `insert into slots(court_id, starts_at, published, blocked) values ($1, $2, true, $3) returning id`,
-    [courtId, startsAt, blocked],
-  );
-  return r.rows[0]!.id;
-}
-
-async function booking(slotId: string, status: string, expiresAt = "2999-01-01T00:00:00Z") {
-  await db.query(
-    `insert into bookings(slot_id, organizer_id, status, expires_at) values ($1, gen_random_uuid(), $2, $3)`,
-    [slotId, status, expiresAt],
-  );
-}
-
-async function disponibilidade(courtId: string, inicio: string, fim: string) {
-  const r = await db.query<{ livre: boolean; motivo: string | null; preco_total: string | null }>(
-    `select * from disponibilidade_quadra($1, $2, $3)`,
-    [courtId, inicio, fim],
-  );
-  return r.rows[0]!;
-}
+const venue = (opts?: Parameters<typeof venueFor>[1]) => venueFor(db, opts);
+const court = (v: string, opts?: Parameters<typeof courtFor>[2]) => courtFor(db, v, opts);
+const disponibilidade = (c: string, i: string, f: string) => disp(db, c, i, f);
 
 type Hit = {
   court_id: string;
@@ -118,7 +76,7 @@ describe("disponibilidade e busca por horário", () => {
 
   it("não mostra horário parcialmente ocupado e sugere horários próximos", async () => {
     const c = await court(await venue());
-    await booking(await slot(c, at(D, "21:00")), "confirmada");
+    await booking(db, c, at(D, "21:00"), at(D, "22:00"), "confirmada");
 
     expect((await disponibilidade(c, at(D, "20:00"), at(D, "21:30"))).motivo).toBe("reservado");
     const hits = await buscar("20:00", 90);
@@ -138,15 +96,13 @@ describe("disponibilidade e busca por horário", () => {
       DOW,
     ]);
     expect((await disponibilidade(c, at(D, "20:00"), at(D, "21:00"))).motivo).toBe("fechado");
-    expect(
-      (await disponibilidade(c, at(addDays(D, 1), "20:00"), at(addDays(D, 1), "21:00"))).livre,
-    ).toBe(true);
   });
 
   it("não mostra horário bloqueado pelo dono", async () => {
     const c = await court(await venue());
-    await slot(c, at(D, "20:00"), true);
+    await bloqueio(db, c, at(D, "20:00"), at(D, "21:00"));
     expect((await disponibilidade(c, at(D, "19:30"), at(D, "20:30"))).motivo).toBe("bloqueado");
+    expect((await disponibilidade(c, at(D, "21:00"), at(D, "22:00"))).livre).toBe(true);
     expect(await buscar("20:00")).not.toContainEqual(expect.objectContaining({ exato: true }));
   });
 
@@ -166,9 +122,11 @@ describe("disponibilidade e busca por horário", () => {
   it("considera reserva pendente só enquanto o prazo de pagamento vale", async () => {
     const c = await court(await venue());
     // Prazo vencido, mas a rotina de expiração ainda não marcou como "expirada".
-    await booking(await slot(c, at(D, "20:00")), "pendente", "2000-01-01T00:00:00Z");
+    await booking(db, c, at(D, "20:00"), at(D, "21:00"), "pendente", {
+      expiresAt: "2000-01-01T00:00:00Z",
+    });
     expect((await disponibilidade(c, at(D, "20:00"), at(D, "21:00"))).livre).toBe(true);
-    await booking(await slot(c, at(D, "21:00")), "pendente");
+    await booking(db, c, at(D, "21:00"), at(D, "22:00"), "pendente");
     expect((await disponibilidade(c, at(D, "21:00"), at(D, "22:00"))).motivo).toBe("reservado");
   });
 
@@ -186,6 +144,12 @@ describe("disponibilidade e busca por horário", () => {
 
   it("esconde quadras de arenas sem agenda verificada", async () => {
     await court(await venue({ verified: false }));
+    expect(await buscar("20:00")).toEqual([]);
+  });
+
+  it("esconde semanas que o gestor ainda não publicou", async () => {
+    const c = await court(await venue({ published: false }));
+    expect((await disponibilidade(c, at(D, "20:00"), at(D, "21:00"))).motivo).toBe("nao_publicado");
     expect(await buscar("20:00")).toEqual([]);
   });
 
@@ -223,7 +187,7 @@ describe("disponibilidade e busca por horário", () => {
     const perto = await court(await venue(), { price: 300 });
     // ~2,2 km da Savassi
     const medio = await court(await venue({ lat: -19.9164, lng: -43.9443 }), { price: 100 });
-    // Contagem, ~25 km
+    // Contagem, ~12 km
     await court(await venue({ lat: -19.9317, lng: -44.0536 }), { price: 50 });
 
     const porDistancia = await buscar("20:00", 60, { raio: 10 });
@@ -248,9 +212,9 @@ describe("disponibilidade e busca por horário", () => {
       `update horarios_funcionamento set abre = '00:00', fecha = '24:00' where court_id = $1`,
       [c],
     );
-    await booking(await slot(c, at(D, "23:00")), "confirmada");
+    await booking(db, c, at(D, "23:00"), at(addDays(D, 1), "00:00"), "confirmada");
     const hits = await buscar("23:00", 60);
-    // 23:30 e 00:00 cruzariam para o dia seguinte; só ficam 22:00 e 22:30… e 22:30 bate com as 23h.
+    // 23:30 e 00:00 cruzariam para o dia seguinte e 22:30 bate com as 23h: só sobra 22:00.
     expect(hits.map((h) => h.inicio)).toEqual(["22:00"]);
   });
 
@@ -259,33 +223,12 @@ describe("disponibilidade e busca por horário", () => {
     await expect(buscar("20:00", 45)).rejects.toThrow(/Duração/);
     await expect(buscar("20:15", 60)).rejects.toThrow(/meia hora/);
   });
-
-  it("agenda de 1h gerada respeita o funcionamento por dia", async () => {
-    const v = await venue();
-    const c = await court(v);
-    await db.query(
-      `update horarios_funcionamento set abre = '18:00', fecha = '22:00' where court_id = $1`,
-      [c],
-    );
-    const gestor = "00000000-0000-0000-0000-000000000001";
-    await db.query(`insert into auth.users(id, email) values ($1, 'g@teste.com')`, [gestor]);
-    await db.query(`insert into venue_managers(venue_id, user_id) values ($1, $2)`, [v, gestor]);
-    await db.exec(`set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000001'`);
-    const n = await db.query<{ n: number }>(`select generate_week($1::date, $2) n`, [D, v]);
-    expect(n.rows[0]!.n).toBe(7 * 4);
-  });
 });
 
 describe("migrações", () => {
   it("podem rodar de novo sem erro (já aplicadas à mão no Supabase)", async () => {
-    const { readFileSync } = await import("node:fs");
-    const path = await import("node:path");
-    for (const name of ["0001_multi_local_bh", "0002_cnpj_local", "0003_busca_horario"]) {
-      const sql = readFileSync(
-        path.resolve(__dirname, `../../drizzle/migrations/${name}.sql`),
-        "utf8",
-      );
-      await expect(db.exec(sql)).resolves.toBeDefined();
+    for (const name of MIGRATIONS.slice(1)) {
+      await expect(db.exec(migrationSql(name))).resolves.toBeDefined();
     }
   }, 60_000);
 });

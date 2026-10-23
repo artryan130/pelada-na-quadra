@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/lib/auth";
+import { errMsg } from "@/lib/time";
 
 export type BookingStatus = Database["public"]["Enums"]["booking_status"];
 export type Venue = Database["public"]["Tables"]["venues"]["Row"];
@@ -112,4 +114,41 @@ export async function fetchProfiles(ids: string[]): Promise<Map<string, Profile>
     .in("id", unique);
   if (error) throw error;
   return new Map(data.map((p) => [p.id, p]));
+}
+
+/** Joins or leaves the waitlist for an interval of a court. */
+export function useFila() {
+  const { session } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { courtId: string; inicio: string; fim: string; sair: boolean }) => {
+      if (v.sair) {
+        // Leaves every entry of mine that touches this interval.
+        const { error } = await supabase
+          .from("waitlist")
+          .delete()
+          .eq("court_id", v.courtId)
+          .eq("organizer_id", session!.user.id)
+          .lt("starts_at", v.fim)
+          .gt("ends_at", v.inicio);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.rpc("entrar_fila", {
+          _court: v.courtId,
+          _inicio: v.inicio,
+          _fim: v.fim,
+        });
+        if (error) throw error;
+      }
+      return v.sair;
+    },
+    onSuccess: (saiu) => {
+      toast.success(saiu ? "Você saiu da fila." : "Pronto! Avisamos você se esse horário vagar.");
+      qc.invalidateQueries({ queryKey: ["agenda"] });
+      qc.invalidateQueries({ queryKey: ["my-waitlist"] });
+      qc.invalidateQueries({ queryKey: ["disponibilidade"] });
+      qc.invalidateQueries({ queryKey: ["minha-fila"] });
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
 }

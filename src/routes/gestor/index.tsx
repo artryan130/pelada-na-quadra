@@ -1,20 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Loader2, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useCourts, useMyVenue } from "@/lib/booking";
-import {
-  addDays,
-  dayOfBRT,
-  errMsg,
-  fmtDay,
-  hourOfBRT,
-  mondayOf,
-  startOfDayISO,
-  todayBRT,
-} from "@/lib/time";
+import { addDays, errMsg, fmtDay, fmtTime, mondayOf, todayBRT } from "@/lib/time";
 import { EmptyState } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -24,33 +16,21 @@ export const Route = createFileRoute("/gestor/")({
   component: WeekAgenda,
 });
 
-type CellState = "livre" | "bloqueado" | "pendente" | "confirmada";
-type WeekSlot = {
-  id: string;
-  court_id: string;
-  starts_at: string;
-  published: boolean;
-  blocked: boolean;
-  block_note: string | null;
-  bookings: { status: string }[];
-  waitlist: { id: string }[];
-};
+type Cell = Database["public"]["Functions"]["agenda_gestor"]["Returns"][number];
+type Estado = "livre" | "bloqueado" | "mensalista" | "pendente" | "confirmada";
+const HORA = 3600_000;
 
-function cellState(s: WeekSlot): CellState {
-  if (s.bookings.some((b) => b.status === "confirmada")) return "confirmada";
-  if (s.bookings.some((b) => b.status === "pendente")) return "pendente";
-  return s.blocked ? "bloqueado" : "livre";
-}
-
-const CELL_CLASS: Record<CellState, string> = {
+const CELL_CLASS: Record<Estado, string> = {
   livre: "bg-card border-border hover:border-primary",
   bloqueado: "bg-pitch text-pitch-foreground border-pitch",
+  mensalista: "bg-secondary text-secondary-foreground border-secondary",
   pendente: "bg-warning text-warning-foreground border-warning",
   confirmada: "bg-success text-success-foreground border-success",
 };
-const CELL_TEXT: Record<CellState, string> = {
+const CELL_TEXT: Record<Estado, string> = {
   livre: "",
   bloqueado: "Ocup.",
+  mensalista: "Mensal",
   pendente: "Pend.",
   confirmada: "Pago",
 };
@@ -69,68 +49,41 @@ function WeekAgenda() {
   const navigate = useNavigate();
   const key = ["week", venueId, monday];
 
-  const { data: slots, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: key,
     enabled: !!venueId,
     queryFn: async () => {
       await supabase.rpc("expire_bookings");
-      // Published slots of other venues are readable too, so scope to this venue.
-      const { data, error } = await supabase
-        .from("slots")
-        .select(
-          "id, court_id, starts_at, published, blocked, block_note, bookings(status), waitlist(id), courts!inner(venue_id)",
-        )
-        .eq("courts.venue_id", venueId!)
-        .gte("starts_at", startOfDayISO(monday))
-        .lt("starts_at", startOfDayISO(addDays(monday, 7)))
-        .in("bookings.status", ["pendente", "confirmada"])
-        .order("starts_at")
-        .limit(5000);
-      if (error) throw error;
-      return data as WeekSlot[];
+      const [cells, pub] = await Promise.all([
+        supabase.rpc("agenda_gestor", { _venue: venueId!, _monday: monday }),
+        supabase
+          .from("semanas_publicadas")
+          .select("segunda")
+          .eq("venue_id", venueId!)
+          .eq("segunda", monday)
+          .maybeSingle(),
+      ]);
+      if (cells.error) throw cells.error;
+      if (pub.error) throw pub.error;
+      return { cells: cells.data, publicada: !!pub.data };
     },
   });
 
   const activeCourt = courtId ?? courts[0]?.id;
-  const all = slots ?? [];
-  const courtSlots = all.filter((s) => s.court_id === activeCourt);
-  const published = all.filter((s) => s.published).length;
-  const isPublished = all.length > 0 && published === all.length;
-
-  const hours = useMemo(() => {
-    const hs = new Set(courtSlots.map((s) => hourOfBRT(s.starts_at)));
-    if (venue) for (let h = venue.open_hour; h < venue.close_hour; h++) hs.add(h);
-    return [...hs].sort((a, b) => a - b);
-  }, [courtSlots, venue]);
-  const grid = new Map(
-    courtSlots.map((s) => [`${dayOfBRT(s.starts_at)}|${hourOfBRT(s.starts_at)}`, s]),
+  const all = data?.cells ?? [];
+  const courtCells = all.filter((c) => c.court_id === activeCourt);
+  const isPublished = !!data?.publicada;
+  const hours = useMemo(
+    () => [...new Set(courtCells.map((c) => c.hora))].sort((a, b) => a - b),
+    [courtCells],
   );
+  const grid = new Map(courtCells.map((c) => [`${c.dia}|${c.hora}`, c]));
 
   const occupancy = (cid: string) => {
-    const list = all.filter((s) => s.court_id === cid);
+    const list = all.filter((c) => c.court_id === cid);
     if (!list.length) return null;
-    return Math.round((list.filter((s) => cellState(s) !== "livre").length / list.length) * 100);
+    return Math.round((list.filter((c) => c.estado !== "livre").length / list.length) * 100);
   };
-
-  const generate = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.rpc("generate_week", {
-        _monday: monday,
-        _venue: venueId!,
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (n) => {
-      if (n) toast.success(`${n} horários criados.`);
-      else
-        toast.info(
-          "Nenhum horário novo: essa semana já tinha todos os horários das quadras ativas.",
-        );
-      qc.invalidateQueries({ queryKey: key });
-    },
-    onError: (e) => toast.error(errMsg(e)),
-  });
 
   const publish = useMutation({
     mutationFn: async (value: boolean) => {
@@ -152,17 +105,28 @@ function WeekAgenda() {
   });
 
   const toggleBlock = useMutation({
-    mutationFn: async (s: WeekSlot) => {
-      const { error } = await supabase.rpc("set_slot_blocked", {
-        _slot: s.id,
-        _blocked: !s.blocked,
+    mutationFn: async (c: Cell) => {
+      const { error } = await supabase.rpc("set_bloqueio", {
+        _court: c.court_id,
+        _inicio: c.inicio,
+        _fim: new Date(new Date(c.inicio).getTime() + HORA).toISOString(),
+        _bloquear: c.estado === "livre",
       });
       if (error) throw error;
     },
-    onMutate: async (s) => {
+    onMutate: async (c) => {
       await qc.cancelQueries({ queryKey: key });
-      qc.setQueryData<WeekSlot[]>(key, (old) =>
-        old?.map((x) => (x.id === s.id ? { ...x, blocked: !s.blocked } : x)),
+      qc.setQueryData<{ cells: Cell[]; publicada: boolean }>(key, (old) =>
+        old
+          ? {
+              ...old,
+              cells: old.cells.map((x) =>
+                x.court_id === c.court_id && x.inicio === c.inicio
+                  ? { ...x, estado: c.estado === "livre" ? "bloqueado" : "livre" }
+                  : x,
+              ),
+            }
+          : old,
       );
     },
     onError: (e) => {
@@ -171,12 +135,16 @@ function WeekAgenda() {
     },
   });
 
-  const onCell = (s: WeekSlot) => {
-    const st = cellState(s);
-    if (mode === "detail" || st === "pendente" || st === "confirmada") {
-      navigate({ to: "/gestor/horario/$slotId", params: { slotId: s.id } });
-    } else if (new Date(s.starts_at).getTime() > Date.now()) {
-      toggleBlock.mutate(s);
+  const onCell = (c: Cell) => {
+    const toggles = c.estado === "livre" || c.estado === "bloqueado";
+    if (mode === "block" && toggles) {
+      if (new Date(c.inicio).getTime() > Date.now()) toggleBlock.mutate(c);
+    } else {
+      navigate({
+        to: "/gestor/horario/$courtId",
+        params: { courtId: c.court_id },
+        search: { inicio: c.inicio },
+      });
     }
   };
 
@@ -199,13 +167,12 @@ function WeekAgenda() {
         </Link>
       </EmptyState>
     );
-  // A new gestor's venue starts without courts, and generate_week creates slots per active court.
   if (!courts.length)
     return (
       <EmptyState title="Cadastre suas quadras primeiro">
         <p>
-          Os horários da semana são criados para cada quadra ativa do seu local. Adicione suas
-          quadras com nome, piso e preço por hora.
+          A agenda é montada a partir do horário de funcionamento de cada quadra ativa do seu local.
+          Adicione suas quadras com nome, piso e preço.
         </p>
         <Button asChild className="mt-4">
           <Link to="/gestor/configuracao">Cadastrar quadras</Link>
@@ -248,21 +215,12 @@ function WeekAgenda() {
         <Loader2 className="mx-auto mt-8 size-6 animate-spin text-muted-foreground" />
       ) : !all.length ? (
         <div className="mt-6">
-          <EmptyState title="Essa semana ainda não tem horários">
-            <p>
-              Vamos criar os horários{" "}
-              {courts.length === 1 ? "da sua quadra" : `das ${courts.length} quadras`}
-              {venue && ` das ${venue.open_hour}h às ${venue.close_hour}h`}, todos livres. Depois é
-              só marcar o que já está ocupado e publicar.
-            </p>
-            <Button
-              className="mt-4"
-              onClick={() => generate.mutate()}
-              disabled={generate.isPending}
-            >
-              {generate.isPending ? <Loader2 className="animate-spin" /> : <Sparkles />} Gerar
-              horários da semana
-            </Button>
+          <EmptyState title="Nenhuma quadra aberta nessa semana">
+            Confira o funcionamento de cada quadra em{" "}
+            <Link to="/gestor/configuracao" className="font-semibold text-primary">
+              Configuração → Horários e preços
+            </Link>
+            .
           </EmptyState>
         </div>
       ) : (
@@ -275,10 +233,8 @@ function WeekAgenda() {
           >
             <span>
               {isPublished
-                ? "Publicada: organizadores veem essa semana."
-                : published
-                  ? `Parcialmente publicada (${published} de ${all.length}).`
-                  : "Rascunho: só você vê essa semana."}
+                ? "Publicada: organizadores podem reservar essa semana."
+                : "Rascunho: marque o que já está ocupado e publique."}
             </span>
             <Button
               size="sm"
@@ -310,35 +266,25 @@ function WeekAgenda() {
             })}
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <div className="flex rounded-lg border bg-card p-0.5 text-xs">
-              <button
-                className={cn(
-                  "flex items-center gap-1 rounded-md px-2.5 py-1 font-medium",
-                  mode === "block" && "bg-secondary",
-                )}
-                onClick={() => setMode("block")}
-              >
-                <Lock className="size-3" /> Tocar bloqueia
-              </button>
-              <button
-                className={cn(
-                  "flex items-center gap-1 rounded-md px-2.5 py-1 font-medium",
-                  mode === "detail" && "bg-secondary",
-                )}
-                onClick={() => setMode("detail")}
-              >
-                <Eye className="size-3" /> Tocar abre detalhe
-              </button>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => generate.mutate()}
-              disabled={generate.isPending}
+          <div className="mt-3 flex rounded-lg border bg-card p-0.5 text-xs">
+            <button
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1 rounded-md px-2.5 py-1 font-medium",
+                mode === "block" && "bg-secondary",
+              )}
+              onClick={() => setMode("block")}
             >
-              Completar horários
-            </Button>
+              <Lock className="size-3" /> Tocar marca ocupado
+            </button>
+            <button
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1 rounded-md px-2.5 py-1 font-medium",
+                mode === "detail" && "bg-secondary",
+              )}
+              onClick={() => setMode("detail")}
+            >
+              <Eye className="size-3" /> Tocar abre detalhe
+            </button>
           </div>
 
           <div className="mt-3 overflow-x-auto">
@@ -366,26 +312,30 @@ function WeekAgenda() {
                       {h}h
                     </td>
                     {days.map((d) => {
-                      const s = grid.get(`${d}|${h}`);
-                      if (!s) return <td key={d} className="h-9 rounded-md bg-muted/40" />;
-                      const st = cellState(s);
-                      const past = new Date(s.starts_at).getTime() <= Date.now();
+                      const c = grid.get(`${d}|${h}`);
+                      if (!c) return <td key={d} className="h-9 rounded-md bg-muted/40" />;
+                      const estado = c.estado as Estado;
+                      const past = new Date(c.inicio).getTime() + HORA <= Date.now();
+                      const faixa =
+                        c.booking_inicio && c.booking_fim
+                          ? `${fmtTime(c.booking_inicio)}–${fmtTime(c.booking_fim)}`
+                          : undefined;
                       return (
                         <td key={d} className="p-0">
                           <button
-                            onClick={() => onCell(s)}
-                            title={s.block_note ?? undefined}
+                            onClick={() => onCell(c)}
+                            title={[faixa, c.nota].filter(Boolean).join(" · ") || undefined}
                             className={cn(
                               "relative flex h-9 w-full items-center justify-center rounded-md border text-[10px] font-semibold transition-colors",
-                              CELL_CLASS[st],
-                              !s.published && "border-dashed",
+                              CELL_CLASS[estado],
+                              !isPublished && "border-dashed",
                               past && "opacity-40",
                             )}
                           >
-                            {CELL_TEXT[st]}
-                            {s.waitlist.length > 0 && (
+                            {CELL_TEXT[estado]}
+                            {c.fila > 0 && (
                               <span className="absolute right-0.5 top-0.5 flex size-3.5 items-center justify-center rounded-full bg-accent text-[9px] text-accent-foreground">
-                                {s.waitlist.length}
+                                {c.fila}
                               </span>
                             )}
                           </button>
@@ -401,14 +351,15 @@ function WeekAgenda() {
           <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
             <Legend className="bg-card border">Livre</Legend>
             <Legend className="bg-pitch">Ocupado por fora</Legend>
+            <Legend className="bg-secondary">Mensalista</Legend>
             <Legend className="bg-warning">Aguardando Pix</Legend>
             <Legend className="bg-success">Pago</Legend>
             <Legend className="bg-accent rounded-full">Fila de espera</Legend>
-            <Legend className="border border-dashed bg-card">Não publicado</Legend>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Marque como ocupado tudo o que foi reservado por WhatsApp, telefone ou na hora. Pedidos
-            pelo app aparecem em{" "}
+            Cada célula é 1 hora. Reservas pelo app podem durar 1h, 1h30 ou 2h e começar na meia
+            hora; toque nelas para ver o horário exato. Marque como ocupado tudo o que foi reservado
+            por WhatsApp, telefone ou na hora. Pedidos pelo app aparecem em{" "}
             <Link to="/gestor/solicitacoes" className="font-semibold text-primary">
               Solicitações
             </Link>

@@ -39,7 +39,7 @@ function BookingPage() {
       const { data, error } = await supabase
         .from("bookings")
         .select(
-          "id, status, preco, created_at, expires_at, slots(starts_at, duration_min, courts(name, surface, price_per_hour, venues(name, address, pix_key, whatsapp, cancel_limit_hours)))",
+          "id, status, preco, created_at, expires_at, starts_at, ends_at, courts(name, surface, price_per_hour, venues(name, address, pix_key, whatsapp, cancel_limit_hours))",
         )
         .eq("id", bookingId)
         .maybeSingle();
@@ -67,8 +67,8 @@ function BookingPage() {
   });
 
   if (isLoading) return <Loader2 className="mx-auto size-6 animate-spin text-muted-foreground" />;
-  const slot = b?.slots;
-  const court = slot?.courts;
+  const slot = b;
+  const court = b?.courts;
   const venue = court?.venues;
   if (!b || !slot || !court) return <EmptyState title="Reserva não encontrada" />;
 
@@ -77,7 +77,7 @@ function BookingPage() {
   const canSelfCancel =
     b.status === "pendente" ||
     (b.status === "confirmada" && startsIn >= (venue?.cancel_limit_hours ?? 24) * HOUR);
-  const label = `${court.name}, ${fmtDateLong(slot.starts_at)} às ${fmtTime(slot.starts_at)}`;
+  const label = `${court.name}, ${fmtDateLong(slot.starts_at)}, das ${fmtTime(slot.starts_at)} às ${fmtTime(slot.ends_at)}`;
   const wa = venue?.whatsapp
     ? whatsappLink(venue.whatsapp, `Olá! Sobre minha reserva no Bate-Bola: ${label}.`)
     : null;
@@ -101,7 +101,7 @@ function BookingPage() {
       <div className="mt-4 rounded-2xl bg-card p-5 shadow-card">
         <p className="font-display text-lg font-bold">{court.name}</p>
         <p className="text-sm capitalize text-muted-foreground">
-          {fmtDateLong(slot.starts_at)} · {fmtTime(slot.starts_at)}
+          {fmtDateLong(slot.starts_at)} · {fmtTime(slot.starts_at)}–{fmtTime(slot.ends_at)}
         </p>
         <p className="mt-2 text-sm">
           Valor: <strong>{brl(Number(b.preco ?? court.price_per_hour))}</strong>
